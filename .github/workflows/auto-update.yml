@@ -76,8 +76,6 @@ jobs:
           tar -xzf /tmp/zeroclaw-armv7-linux-androideabi.tar.gz -C /tmp/zeroclaw-armv7
           
           echo "Extract complete"
-          ls -la /tmp/zeroclaw-arm64/
-          ls -la /tmp/zeroclaw-armv7/
 
       - name: Update module files
         if: steps.check.outputs.update_needed == 'true'
@@ -91,9 +89,6 @@ jobs:
           
           # Update customize.sh
           sed -i "s/Version: v[0-9.]*/Version: $VERSION/" zeroclaw/customize.sh
-          
-          # Update updateJson.json
-          # Note: zipUrl and changelog will be updated after release is created
           
           echo "Module files updated"
 
@@ -109,7 +104,7 @@ jobs:
           # Create zip
           zip -r "zeroclaw-magisk-aarch64-$VERSION.zip" zeroclaw/
           
-          echo "ARM64 package created: zeroclaw-magisk-aarch64-$VERSION.zip"
+          echo "ARM64 package created"
 
       - name: Build ARMv7 package
         if: steps.check.outputs.update_needed == 'true'
@@ -123,7 +118,7 @@ jobs:
           # Create zip
           zip -r "zeroclaw-magisk-armv7-$VERSION.zip" zeroclaw/
           
-          echo "ARMv7 package created: zeroclaw-magisk-armv7-$VERSION.zip"
+          echo "ARMv7 package created"
 
       - name: Commit and push changes
         if: steps.check.outputs.update_needed == 'true'
@@ -141,7 +136,6 @@ jobs:
 
       - name: Create Release
         if: steps.check.outputs.update_needed == 'true'
-        id: release_create
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.release.outputs.version }}
@@ -155,32 +149,11 @@ jobs:
             
             ### Source
             - [zeroclaw-labs/zeroclaw v${{ steps.release.outputs.version }}](https://github.com/${{ env.SOURCE_REPO }}/releases/tag/v${{ steps.release.outputs.version }})
+          files: |
+            zeroclaw-magisk-aarch64-${{ steps.release.outputs.version }}.zip
+            zeroclaw-magisk-armv7-${{ steps.release.outputs.version }}.zip
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      - name: Upload ARM64 artifact
-        if: steps.check.outputs.update_needed == 'true'
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release_create.outputs.upload_url }}
-          asset_path: zeroclaw-magisk-aarch64-${{ steps.release.outputs.version }}.zip
-          asset_name: zeroclaw-magisk-aarch64-${{ steps.release.outputs.version }}.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      - name: Upload ARMv7 artifact
-        if: steps.check.outputs.update_needed == 'true'
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release_create.outputs.upload_url }}
-          asset_path: zeroclaw-magisk-armv7-${{ steps.release.outputs.version }}.zip
-          asset_name: zeroclaw-magisk-armv7-${{ steps.release.outputs.version }}.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Update updateJson.json with release URLs
         if: steps.check.outputs.update_needed == 'true'
