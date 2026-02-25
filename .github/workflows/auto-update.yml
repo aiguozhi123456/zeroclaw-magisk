@@ -96,8 +96,8 @@ jobs:
           set -e
           VERSION="${{ steps.release.outputs.version }}"
           VERSION_CODE="${{ steps.release.outputs.version_code }}"
-          ZIP_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/zeroclaw-magisk-aarch64-$VERSION.zip"
-          CHANGELOG_URL="https://github.com/${{ env.SOURCE_REPO }}/releases/tag/v$VERSION"
+          ZIP_URL="https://github.com/${{ github.repository }}/releases/download/$VERSION/zeroclaw-magisk-aarch64-$VERSION.zip"
+          CHANGELOG_URL="https://github.com/${{ env.SOURCE_REPO }}/releases/tag/$VERSION"
 
           sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/module.prop
           sed -i "s/{{VERSION_CODE}}/$VERSION_CODE/g" zeroclaw/module.prop
@@ -122,7 +122,7 @@ jobs:
           cp /tmp/zeroclaw-arm64/zeroclaw zeroclaw/bin/zeroclaw
           chmod +x zeroclaw/bin/zeroclaw
 
-          zip -r "zeroclaw-magisk-aarch64-$VERSION.zip" zeroclaw/
+          cd zeroclaw && zip -r "../zeroclaw-magisk-aarch64-$VERSION.zip" . && cd ..
 
           echo "ARM64 package created"
 
@@ -136,7 +136,7 @@ jobs:
           cp /tmp/zeroclaw-armv7/zeroclaw zeroclaw/bin/zeroclaw
           chmod +x zeroclaw/bin/zeroclaw
 
-          zip -r "zeroclaw-magisk-armv7-$VERSION.zip" zeroclaw/
+          cd zeroclaw && zip -r "../zeroclaw-magisk-armv7-$VERSION.zip" . && cd ..
 
           echo "ARMv7 package created"
 
