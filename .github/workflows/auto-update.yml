@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
+    inputs:
+      force_update:
+        description: '强制更新到最新版本，跳过版本检查'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: auto-update
@@ -52,7 +58,10 @@ jobs:
           CURRENT_VERSION=$(grep '^version=' zeroclaw/module.prop | cut -d'=' -f2)
           NEW_VERSION="${{ steps.release.outputs.version }}"
 
-          if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
+          if [ "${{ inputs.force_update }}" = "true" ]; then
+            echo "Force update requested. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+          elif [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
             echo "No update needed. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
             echo "update_needed=false" >> $GITHUB_OUTPUT
           else
