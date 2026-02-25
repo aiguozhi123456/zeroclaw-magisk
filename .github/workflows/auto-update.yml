@@ -1,63 +1,16 @@
-name: Auto Update Magisk Module
+name: Test Workflow
 
 on:
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
 
-env:
-  SOURCE_REPO: zeroclaw-labs/zeroclaw
-
 jobs:
   update:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      releases: write
-
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get latest release info
-        id: release
-        run: |
-          set -e
-          RELEASE_JSON=$(curl -sL https://api.github.com/repos/${{ env.SOURCE_REPO }}/releases/latest)
-
-          if [ -z "$RELEASE_JSON" ] || echo "$RELEASE_JSON" | jq -e '.message' > /dev/null 2>&1; then
-            echo "Failed to fetch release info"
-            exit 1
-          fi
-
-          TAG_NAME=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
-          VERSION="$TAG_NAME"
-          VERSION_CODE=$(echo "$TAG_NAME" | sed 's/^v//' | tr -d '.')
-
-          echo "Latest version: $VERSION"
-          echo "Version code: $VERSION_CODE"
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-
-      - name: Check if update needed
-        id: check
-        run: |
-          CURRENT_VERSION=$(grep '^version=' zeroclaw/module.prop | cut -d'=' -f2)
-          NEW_VERSION="${{ steps.release.outputs.version }}"
-
-          if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
-            echo "No update needed. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
-            echo "update_needed=false" >> $GITHUB_OUTPUT
-          else
-            echo "Update needed. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
-            echo "update_needed=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Summary
-        run: |
-          if [ "${{ steps.check.outputs.update_needed }}" = "true" ]; then
-            echo "Update needed!"
-          else
-            echo "No update needed."
-          fi
+      - name: Test
+        run: echo "Hello World"
