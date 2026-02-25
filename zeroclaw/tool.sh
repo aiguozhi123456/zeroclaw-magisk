@@ -17,6 +17,7 @@ show_help() {
 run_cmd() {
   case "$1" in
     1|start)
+      chmod +x "$MODDIR/bin/zeroclaw"
       nohup "$MODDIR/bin/zeroclaw" daemon > "$MODDIR/zeroclaw.log" 2>&1 &
       echo "Started"
       ;;
