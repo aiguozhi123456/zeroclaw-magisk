@@ -1,8 +1,8 @@
 #!/system/bin/sh
 MODDIR=${0%/*}
-export HOME="/storage/emulated/0/Android/"
+export HOME="/storage/emulated/0/Android"
 
-if ps -A 2>/dev/null | grep -q "zeroclaw"; then
+if ps -A 2>/dev/null | grep -q "[z]eroclaw"; then
   pkill zeroclaw
   echo "Stopped"
 else

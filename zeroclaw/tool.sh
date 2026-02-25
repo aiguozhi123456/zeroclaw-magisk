@@ -1,6 +1,6 @@
 #!/system/bin/sh
 MODDIR=${0%/*}
-export HOME="/storage/emulated/0/Android/"
+export HOME="/storage/emulated/0/Android"
 
 show_help() {
   echo "ZeroClaw Control Panel"
@@ -34,11 +34,14 @@ run_cmd() {
       "$MODDIR/bin/zeroclaw" status
       ;;
     5|status_grep)
-      if ps -A 2>/dev/null | grep -q "zeroclaw"; then
+      if ps -A 2>/dev/null | grep -q "[z]eroclaw"; then
         echo "Running"
       else
         echo "Not running"
       fi
+      ;;
+    daemon)
+      nohup "$MODDIR/bin/zeroclaw" daemon > "$MODDIR/zeroclaw.log" 2>&1 &
       ;;
     help|h|?)
       show_help

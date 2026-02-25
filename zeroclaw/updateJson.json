@@ -1,6 +1,6 @@
 {
-	"version": "1.0",
-	"versionCode": 11,
-	"zipUrl": "下载文件直链",
-	"changelog": "更新日志直链"
+	"version": "{{VERSION}}",
+	"versionCode": {{VERSION_CODE}},
+	"zipUrl": "{{ZIP_URL}}",
+	"changelog": "{{CHANGELOG_URL}}"
 }
