@@ -163,12 +163,11 @@ jobs:
           git add zeroclaw/
 
           if git diff --cached --quiet; then
-            echo "No changes to commit, creating marker file"
-            touch .force_update_marker
-            git add .force_update_marker
+            echo "No changes to commit, using --allow-empty"
+            git commit --allow-empty -m "Update to $VERSION"
+          else
+            git commit -m "Update to $VERSION"
           fi
-
-          git commit -m "Update to $VERSION"
 
           git push origin master
 
