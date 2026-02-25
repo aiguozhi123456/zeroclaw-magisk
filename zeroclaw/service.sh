@@ -6,4 +6,5 @@ MODDIR=${0%/*}
 # 该脚本将在设备开机后作为延迟服务启动
 sleep 10
 chmod +x "$MODDIR/bin/zeroclaw"
+chmod +x "$MODDIR/tool.sh"
 "$MODDIR/tool.sh" start
