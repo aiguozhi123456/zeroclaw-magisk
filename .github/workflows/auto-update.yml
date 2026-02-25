@@ -203,8 +203,13 @@ jobs:
           cp /tmp/placeholders/updateJson.json zeroclaw/updateJson.json
 
           git add zeroclaw/
-          git commit -m "Restore placeholders"
-          git push origin master
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit, skipping"
+          else
+            git commit -m "Restore placeholders"
+            git push origin master
+          fi
 
       - name: Summary
         run: |
