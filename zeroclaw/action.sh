@@ -6,6 +6,7 @@ if ps -A 2>/dev/null | grep -q "[z]eroclaw"; then
   pkill zeroclaw
   echo "Stopped"
 else
-  nohup "$MODDIR/bin/zeroclaw" daemon > "$MODDIR/zeroclaw.log" 2>&1 &
+  chmod +x "$MODDIR/tool.sh"
+  "$MODDIR/tool.sh" start
   echo "Started"
 fi
