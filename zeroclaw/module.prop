@@ -2,6 +2,6 @@ id=zeroclaw
 name=ZeroClaw AI Assistant
 version=v0.1.7
 versionCode=017
-author=zeroclaw-labs
+author=wuyiyi
 description=Fast, small, and fully autonomous AI assistant infrastructure. Runs on Android with <5MB RAM. Supports WebUI for chat interface.
 updateJson=https://raw.githubusercontent.com/aiguozhi123456/zeroclaw-magisk/master/zeroclaw/updateJson.json
