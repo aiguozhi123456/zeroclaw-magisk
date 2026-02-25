@@ -1,16 +1,195 @@
-name: Test Workflow
+name: Auto Update Magisk Module
 
 on:
   schedule:
     - cron: '0 */6 * * *'
   workflow_dispatch:
 
+concurrency:
+  group: auto-update
+  cancel-in-progress: false
+
+env:
+  SOURCE_REPO: zeroclaw-labs/zeroclaw
+
 jobs:
   update:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    permissions:
+      contents: write
 
-      - name: Test
-        run: echo "Hello World"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Get latest release info
+        id: release
+        run: |
+          set -e
+          RELEASE_JSON=$(curl -sL https://api.github.com/repos/${{ env.SOURCE_REPO }}/releases/latest)
+
+          if [ -z "$RELEASE_JSON" ] || echo "$RELEASE_JSON" | jq -e '.message' > /dev/null 2>&1; then
+            echo "Failed to fetch release info"
+            exit 1
+          fi
+
+          TAG_NAME=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+          VERSION="$TAG_NAME"
+          VERSION_CODE=$(echo "$TAG_NAME" | sed 's/^v//' | tr -d '.')
+
+          echo "Latest version: $VERSION"
+          echo "Version code: $VERSION_CODE"
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+      - name: Check if update needed
+        id: check
+        run: |
+          CURRENT_VERSION=$(grep '^version=' zeroclaw/module.prop | cut -d'=' -f2)
+          NEW_VERSION="${{ steps.release.outputs.version }}"
+
+          if [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
+            echo "No update needed. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
+            echo "update_needed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Update needed. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
+            echo "update_needed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Backup placeholder files
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          mkdir -p /tmp/placeholders
+          cp zeroclaw/module.prop /tmp/placeholders/module.prop
+          cp zeroclaw/customize.sh /tmp/placeholders/customize.sh
+          cp zeroclaw/updateJson.json /tmp/placeholders/updateJson.json
+
+      - name: Download Android binaries
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -e
+          VERSION="${{ steps.release.outputs.version }}"
+
+          curl -fSL "https://github.com/${{ env.SOURCE_REPO }}/releases/download/$VERSION/zeroclaw-aarch64-linux-android.tar.gz" -o /tmp/zeroclaw-aarch64-linux-android.tar.gz
+          curl -fSL "https://github.com/${{ env.SOURCE_REPO }}/releases/download/$VERSION/zeroclaw-armv7-linux-androideabi.tar.gz" -o /tmp/zeroclaw-armv7-linux-androideabi.tar.gz
+
+          echo "Download complete"
+
+      - name: Extract binaries
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -e
+          mkdir -p /tmp/zeroclaw-arm64 /tmp/zeroclaw-armv7
+
+          tar -xzf /tmp/zeroclaw-aarch64-linux-android.tar.gz -C /tmp/zeroclaw-arm64
+          tar -xzf /tmp/zeroclaw-armv7-linux-androideabi.tar.gz -C /tmp/zeroclaw-armv7
+
+          echo "Extract complete"
+
+      - name: Replace placeholders with version
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -e
+          VERSION="${{ steps.release.outputs.version }}"
+          VERSION_CODE="${{ steps.release.outputs.version_code }}"
+          ZIP_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/zeroclaw-magisk-aarch64-$VERSION.zip"
+          CHANGELOG_URL="https://github.com/${{ env.SOURCE_REPO }}/releases/tag/v$VERSION"
+
+          sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/module.prop
+          sed -i "s/{{VERSION_CODE}}/$VERSION_CODE/g" zeroclaw/module.prop
+          sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/customize.sh
+
+          echo '{' > zeroclaw/updateJson.json
+          echo "  \"version\": \"$VERSION\"," >> zeroclaw/updateJson.json
+          echo "  \"versionCode\": $VERSION_CODE," >> zeroclaw/updateJson.json
+          echo "  \"zipUrl\": \"$ZIP_URL\"," >> zeroclaw/updateJson.json
+          echo "  \"changelog\": \"$CHANGELOG_URL\"" >> zeroclaw/updateJson.json
+          echo '}' >> zeroclaw/updateJson.json
+
+          echo "Placeholders replaced"
+
+      - name: Build ARM64 package
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -e
+          VERSION="${{ steps.release.outputs.version }}"
+
+          cp /tmp/zeroclaw-arm64/zeroclaw zeroclaw/bin/zeroclaw
+          chmod +x zeroclaw/bin/zeroclaw
+
+          zip -r "zeroclaw-magisk-aarch64-$VERSION.zip" zeroclaw/
+
+          echo "ARM64 package created"
+
+      - name: Build ARMv7 package
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -e
+          VERSION="${{ steps.release.outputs.version }}"
+
+          cp /tmp/zeroclaw-armv7/zeroclaw zeroclaw/bin/zeroclaw
+          chmod +x zeroclaw/bin/zeroclaw
+
+          zip -r "zeroclaw-magisk-armv7-$VERSION.zip" zeroclaw/
+
+          echo "ARMv7 package created"
+
+      - name: Commit and push changes
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add zeroclaw/
+          git commit -m "Update to $VERSION"
+
+          git tag "$VERSION"
+          git push origin master --tags
+
+      - name: Create Release
+        if: steps.check.outputs.update_needed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release.outputs.version }}
+          name: ZeroClaw Magisk Module ${{ steps.release.outputs.version }}
+          body: |
+            ## ZeroClaw Magisk Module ${{ steps.release.outputs.version }}
+
+            ### Downloads
+            - [zeroclaw-magisk-aarch64-${{ steps.release.outputs.version }}.zip (ARM64)](https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.version }}/zeroclaw-magisk-aarch64-${{ steps.release.outputs.version }}.zip)
+            - [zeroclaw-magisk-armv7-${{ steps.release.outputs.version }}.zip (ARMv7)](https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.version }}/zeroclaw-magisk-armv7-${{ steps.release.outputs.version }}.zip)
+
+            ### Source
+            - [zeroclaw-labs/zeroclaw ${{ steps.release.outputs.version }}](https://github.com/${{ env.SOURCE_REPO }}/releases/tag/${{ steps.release.outputs.version }})
+          files: |
+            zeroclaw-magisk-aarch64-${{ steps.release.outputs.version }}.zip
+            zeroclaw-magisk-armv7-${{ steps.release.outputs.version }}.zip
+          draft: false
+          prerelease: false
+
+      - name: Restore placeholder files
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          cp /tmp/placeholders/module.prop zeroclaw/module.prop
+          cp /tmp/placeholders/customize.sh zeroclaw/customize.sh
+          cp /tmp/placeholders/updateJson.json zeroclaw/updateJson.json
+
+          git add zeroclaw/
+          git commit -m "Restore placeholders"
+          git push origin master
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.check.outputs.update_needed }}" = "true" ]; then
+            echo "Update completed successfully!"
+            echo "Version: ${{ steps.release.outputs.version }}"
+            echo "VersionCode: ${{ steps.release.outputs.version_code }}"
+          else
+            echo "No update needed. Already at latest version."
+          fi
