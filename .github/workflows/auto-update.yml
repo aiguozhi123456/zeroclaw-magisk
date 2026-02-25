@@ -101,14 +101,13 @@ jobs:
           sed -i "s/{{VERSION_CODE}}/$VERSION_CODE/g" zeroclaw/module.prop
           sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/customize.sh
 
-          printf '%s\n' \
-            '{' \
-            "  \"version\": \"$VERSION\"," \
-            "  \"versionCode\": $VERSION_CODE," \
-            "  \"zipUrl\": \"$ZIP_URL\"," \
-            "  \"changelog\": \"$CHANGELOG_URL\"" \
-            '}' > zeroclaw/updateJson.json
-          
+          echo '{' > zeroclaw/updateJson.json
+          echo "  \"version\": \"$VERSION\"," >> zeroclaw/updateJson.json
+          echo "  \"versionCode\": $VERSION_CODE," >> zeroclaw/updateJson.json
+          echo "  \"zipUrl\": \"$ZIP_URL\"," >> zeroclaw/updateJson.json
+          echo "  \"changelog\": \"$CHANGELOG_URL\"" >> zeroclaw/updateJson.json
+          echo '}' >> zeroclaw/updateJson.json
+
           echo "Placeholders replaced"
 
       - name: Build ARM64 package
