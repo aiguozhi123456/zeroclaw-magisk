@@ -1,0 +1,6 @@
+{
+	"version": "{{VERSION}}",
+	"versionCode": {{VERSION_CODE}},
+	"zipUrl": "{{ZIP_URL}}",
+	"changelog": "{{CHANGELOG_URL}}"
+}

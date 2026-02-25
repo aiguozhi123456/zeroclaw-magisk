@@ -74,9 +74,9 @@ jobs:
         if: steps.check.outputs.update_needed == 'true'
         run: |
           mkdir -p /tmp/placeholders
-          cp zeroclaw/module.prop /tmp/placeholders/module.prop
-          cp zeroclaw/customize.sh /tmp/placeholders/customize.sh
-          cp zeroclaw/updateJson.json /tmp/placeholders/updateJson.json
+          cp .templates/module.prop /tmp/placeholders/module.prop
+          cp .templates/customize.sh /tmp/placeholders/customize.sh
+          cp .templates/updateJson.json /tmp/placeholders/updateJson.json
 
       - name: Download Android binaries
         if: steps.check.outputs.update_needed == 'true'
@@ -197,9 +197,9 @@ jobs:
       - name: Restore placeholder files
         if: steps.check.outputs.update_needed == 'true'
         run: |
-          cp /tmp/placeholders/module.prop zeroclaw/module.prop
-          cp /tmp/placeholders/customize.sh zeroclaw/customize.sh
-          cp /tmp/placeholders/updateJson.json zeroclaw/updateJson.json
+          cp .templates/module.prop zeroclaw/module.prop
+          cp .templates/customize.sh zeroclaw/customize.sh
+          cp .templates/updateJson.json zeroclaw/updateJson.json
 
           git add zeroclaw/
 
