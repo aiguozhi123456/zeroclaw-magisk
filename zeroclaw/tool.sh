@@ -40,9 +40,6 @@ run_cmd() {
         echo "Not running"
       fi
       ;;
-    daemon)
-      nohup "$MODDIR/bin/zeroclaw" daemon > "$MODDIR/zeroclaw.log" 2>&1 &
-      ;;
     help|h|?)
       show_help
       ;;
