@@ -118,6 +118,7 @@ jobs:
           set -e
           VERSION="${{ steps.release.outputs.version }}"
 
+          mkdir -p zeroclaw/bin
           cp /tmp/zeroclaw-arm64/zeroclaw zeroclaw/bin/zeroclaw
           chmod +x zeroclaw/bin/zeroclaw
 
@@ -131,6 +132,7 @@ jobs:
           set -e
           VERSION="${{ steps.release.outputs.version }}"
 
+          mkdir -p zeroclaw/bin
           cp /tmp/zeroclaw-armv7/zeroclaw zeroclaw/bin/zeroclaw
           chmod +x zeroclaw/bin/zeroclaw
 
