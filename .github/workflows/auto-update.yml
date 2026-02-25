@@ -169,11 +169,8 @@ jobs:
 
           git push origin master
 
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
-            git tag -d "$VERSION" || true
-          fi
-          git tag "$VERSION"
-          git push origin "$VERSION"
+          git tag -f "$VERSION"
+          git push origin "$VERSION" --force
 
       - name: Create Release
         if: steps.check.outputs.update_needed == 'true'
