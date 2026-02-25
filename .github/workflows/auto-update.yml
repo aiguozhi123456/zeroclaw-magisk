@@ -100,15 +100,14 @@ jobs:
           sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/module.prop
           sed -i "s/{{VERSION_CODE}}/$VERSION_CODE/g" zeroclaw/module.prop
           sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/customize.sh
-          
-          cat > zeroclaw/updateJson.json << EOF
-          {
-            "version": "$VERSION",
-            "versionCode": $VERSION_CODE,
-            "zipUrl": "$ZIP_URL",
-            "changelog": "$CHANGELOG_URL"
-          }
-          EOF
+
+          printf '%s\n' \
+            '{' \
+            "  \"version\": \"$VERSION\"," \
+            "  \"versionCode\": $VERSION_CODE," \
+            "  \"zipUrl\": \"$ZIP_URL\"," \
+            "  \"changelog\": \"$CHANGELOG_URL\"" \
+            '}' > zeroclaw/updateJson.json
           
           echo "Placeholders replaced"
 
