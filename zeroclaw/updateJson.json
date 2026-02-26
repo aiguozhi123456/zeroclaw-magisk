@@ -1,6 +1,6 @@
 {
-	"version": "{{VERSION}}",
-	"versionCode": {{VERSION_CODE}},
-	"zipUrl": "{{ZIP_URL}}",
-	"changelog": "{{CHANGELOG_URL}}"
+  "version": "v0.1.7",
+  "versionCode": 107,
+  "zipUrl": "https://github.com/aiguozhi123456/zeroclaw-magisk/releases/download/v0.1.7/zeroclaw-magisk-aarch64-v0.1.7.zip",
+  "changelog": "https://github.com/zeroclaw-labs/zeroclaw/releases/tag/v0.1.7"
 }
