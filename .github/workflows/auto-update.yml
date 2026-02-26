@@ -45,7 +45,11 @@ jobs:
 
           TAG_NAME=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
           VERSION="$TAG_NAME"
-          VERSION_CODE=$(echo "$TAG_NAME" | sed 's/^v//' | tr -d '.')
+          VERSION_NUM=$(echo "$TAG_NAME" | sed 's/^v//')
+          MAJOR=$(echo "$VERSION_NUM" | cut -d'.' -f1)
+          MINOR=$(echo "$VERSION_NUM" | cut -d'.' -f2)
+          PATCH=$(echo "$VERSION_NUM" | cut -d'.' -f3)
+          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
 
           echo "Latest version: $VERSION"
           echo "Version code: $VERSION_CODE"
@@ -76,7 +80,6 @@ jobs:
           mkdir -p /tmp/placeholders
           cp .templates/module.prop /tmp/placeholders/module.prop
           cp .templates/customize.sh /tmp/placeholders/customize.sh
-          cp .templates/updateJson.json /tmp/placeholders/updateJson.json
 
       - name: Download Android binaries
         if: steps.check.outputs.update_needed == 'true'
@@ -199,7 +202,6 @@ jobs:
         run: |
           cp .templates/module.prop zeroclaw/module.prop
           cp .templates/customize.sh zeroclaw/customize.sh
-          cp .templates/updateJson.json zeroclaw/updateJson.json
 
           git add zeroclaw/
 
