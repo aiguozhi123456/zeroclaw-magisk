@@ -4,4 +4,4 @@ version={{VERSION}}
 versionCode={{VERSION_CODE}}
 author=wuyiyi
 description=Fast, small, and fully autonomous AI assistant infrastructure. Runs on Android with <5MB RAM. Supports WebUI for chat interface.
-updateJson=https://raw.githubusercontent.com/aiguozhi123456/zeroclaw-magisk/master/zeroclaw/updateJson.json
+updateJson=https://raw.githubusercontent.com/aiguozhi123456/zeroclaw-magisk/refs/heads/master/zeroclaw/updateJson.json

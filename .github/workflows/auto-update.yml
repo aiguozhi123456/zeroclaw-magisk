@@ -32,23 +32,48 @@ jobs:
           fetch-depth: 0
           clean: true
 
+      - name: Setup dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+
       - name: Get latest release info
         id: release
         run: |
           set -e
-          RELEASE_JSON=$(curl -sL https://api.github.com/repos/${{ env.SOURCE_REPO }}/releases/latest)
-
+          
+          # 获取最新 release 信息，带重试
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          RELEASE_JSON=""
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            RELEASE_JSON=$(curl -sL --max-time 30 "https://api.github.com/repos/${{ env.SOURCE_REPO }}/releases/latest")
+            
+            if [ -n "$RELEASE_JSON" ] && ! echo "$RELEASE_JSON" | jq -e '.message' > /dev/null 2>&1; then
+              break
+            fi
+            
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Failed to fetch release info, retrying... ($RETRY_COUNT/$MAX_RETRIES)"
+            sleep 5
+          done
+          
           if [ -z "$RELEASE_JSON" ] || echo "$RELEASE_JSON" | jq -e '.message' > /dev/null 2>&1; then
-            echo "Failed to fetch release info"
+            echo "Failed to fetch release info after $MAX_RETRIES attempts"
             exit 1
           fi
 
           TAG_NAME=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
           VERSION="$TAG_NAME"
           VERSION_NUM=$(echo "$TAG_NAME" | sed 's/^v//')
+          
+          # 解析版本号
           MAJOR=$(echo "$VERSION_NUM" | cut -d'.' -f1)
           MINOR=$(echo "$VERSION_NUM" | cut -d'.' -f2)
           PATCH=$(echo "$VERSION_NUM" | cut -d'.' -f3)
+          
+          # 计算 versionCode (格式: major * 10000 + minor * 100 + patch)
           VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
 
           echo "Latest version: $VERSION"
@@ -60,7 +85,7 @@ jobs:
       - name: Check if update needed
         id: check
         run: |
-          CURRENT_VERSION=$(grep '^version=' zeroclaw/module.prop | cut -d'=' -f2)
+          CURRENT_VERSION=$(grep '^version=' zeroclaw/module.prop | cut -d'=' -f2 | sed 's/{{VERSION}}/placeholder/g')
           NEW_VERSION="${{ steps.release.outputs.version }}"
 
           if [ "${{ inputs.force_update }}" = "true" ]; then
@@ -86,9 +111,18 @@ jobs:
         run: |
           set -e
           VERSION="${{ steps.release.outputs.version }}"
-
-          curl -fSL "https://github.com/${{ env.SOURCE_REPO }}/releases/download/$VERSION/zeroclaw-aarch64-linux-android.tar.gz" -o /tmp/zeroclaw-aarch64-linux-android.tar.gz
-          curl -fSL "https://github.com/${{ env.SOURCE_REPO }}/releases/download/$VERSION/zeroclaw-armv7-linux-androideabi.tar.gz" -o /tmp/zeroclaw-armv7-linux-androideabi.tar.gz
+          
+          # 下载 ARM64 二进制
+          echo "Downloading ARM64 binary..."
+          curl -fSL --max-time 120 --retry 3 --retry-delay 5 \
+            "https://github.com/${{ env.SOURCE_REPO }}/releases/download/$VERSION/zeroclaw-aarch64-linux-android.tar.gz" \
+            -o /tmp/zeroclaw-aarch64-linux-android.tar.gz
+          
+          # 下载 ARMv7 二进制
+          echo "Downloading ARMv7 binary..."
+          curl -fSL --max-time 120 --retry 3 --retry-delay 5 \
+            "https://github.com/${{ env.SOURCE_REPO }}/releases/download/$VERSION/zeroclaw-armv7-linux-androideabi.tar.gz" \
+            -o /tmp/zeroclaw-armv7-linux-androideabi.tar.gz
 
           echo "Download complete"
 
@@ -101,6 +135,17 @@ jobs:
           tar -xzf /tmp/zeroclaw-aarch64-linux-android.tar.gz -C /tmp/zeroclaw-arm64
           tar -xzf /tmp/zeroclaw-armv7-linux-androideabi.tar.gz -C /tmp/zeroclaw-armv7
 
+          # 验证二进制文件
+          if [ ! -f "/tmp/zeroclaw-arm64/zeroclaw" ]; then
+            echo "Error: ARM64 binary not found in archive"
+            exit 1
+          fi
+          
+          if [ ! -f "/tmp/zeroclaw-armv7/zeroclaw" ]; then
+            echo "Error: ARMv7 binary not found in archive"
+            exit 1
+          fi
+
           echo "Extract complete"
 
       - name: Replace placeholders with version
@@ -112,16 +157,22 @@ jobs:
           ZIP_URL="https://github.com/${{ github.repository }}/releases/download/$VERSION/zeroclaw-magisk-aarch64-$VERSION.zip"
           CHANGELOG_URL="https://github.com/${{ env.SOURCE_REPO }}/releases/tag/$VERSION"
 
+          # 替换 module.prop
           sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/module.prop
           sed -i "s/{{VERSION_CODE}}/$VERSION_CODE/g" zeroclaw/module.prop
+          
+          # 替换 customize.sh
           sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/customize.sh
 
-          echo '{' > zeroclaw/updateJson.json
-          echo "  \"version\": \"$VERSION\"," >> zeroclaw/updateJson.json
-          echo "  \"versionCode\": $VERSION_CODE," >> zeroclaw/updateJson.json
-          echo "  \"zipUrl\": \"$ZIP_URL\"," >> zeroclaw/updateJson.json
-          echo "  \"changelog\": \"$CHANGELOG_URL\"" >> zeroclaw/updateJson.json
-          echo '}' >> zeroclaw/updateJson.json
+          # 生成 updateJson.json
+          cat > zeroclaw/updateJson.json << EOF
+          {
+            "version": "$VERSION",
+            "versionCode": $VERSION_CODE,
+            "zipUrl": "$ZIP_URL",
+            "changelog": "$CHANGELOG_URL"
+          }
+          EOF
 
           echo "Placeholders replaced"
 
@@ -137,7 +188,13 @@ jobs:
 
           cd zeroclaw && zip -r "../zeroclaw-magisk-aarch64-$VERSION.zip" . && cd ..
 
-          echo "ARM64 package created"
+          # 验证包
+          if [ ! -f "zeroclaw-magisk-aarch64-$VERSION.zip" ]; then
+            echo "Error: ARM64 package not created"
+            exit 1
+          fi
+
+          echo "ARM64 package created: zeroclaw-magisk-aarch64-$VERSION.zip"
 
       - name: Build ARMv7 package
         if: steps.check.outputs.update_needed == 'true'
@@ -151,7 +208,13 @@ jobs:
 
           cd zeroclaw && zip -r "../zeroclaw-magisk-armv7-$VERSION.zip" . && cd ..
 
-          echo "ARMv7 package created"
+          # 验证包
+          if [ ! -f "zeroclaw-magisk-armv7-$VERSION.zip" ]; then
+            echo "Error: ARMv7 package not created"
+            exit 1
+          fi
+
+          echo "ARMv7 package created: zeroclaw-magisk-armv7-$VERSION.zip"
 
       - name: Commit and push changes
         if: steps.check.outputs.update_needed == 'true'
@@ -172,6 +235,7 @@ jobs:
 
           git push origin master
 
+          # 创建或更新标签
           git tag -f "$VERSION"
           git push origin "$VERSION" --force
 
@@ -190,6 +254,12 @@ jobs:
 
             ### Source
             - [zeroclaw-labs/zeroclaw ${{ steps.release.outputs.version }}](https://github.com/${{ env.SOURCE_REPO }}/releases/tag/${{ steps.release.outputs.version }})
+
+            ### Checksum
+            ```
+            ARM64:  ${{ hashFiles('zeroclaw-magisk-aarch64-*.zip') }}
+            ARMv7:  ${{ hashFiles('zeroclaw-magisk-armv7-*.zip') }}
+            ```
           files: |
             zeroclaw-magisk-aarch64-${{ steps.release.outputs.version }}.zip
             zeroclaw-magisk-armv7-${{ steps.release.outputs.version }}.zip
@@ -203,6 +273,9 @@ jobs:
           cp .templates/module.prop zeroclaw/module.prop
           cp .templates/customize.sh zeroclaw/customize.sh
 
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
           git add zeroclaw/
 
           if git diff --cached --quiet; then
@@ -215,9 +288,18 @@ jobs:
       - name: Summary
         run: |
           if [ "${{ steps.check.outputs.update_needed }}" = "true" ]; then
-            echo "Update completed successfully!"
-            echo "Version: ${{ steps.release.outputs.version }}"
-            echo "VersionCode: ${{ steps.release.outputs.version_code }}"
+            echo "## Update completed successfully! 🎉" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Version | ${{ steps.release.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| VersionCode | ${{ steps.release.outputs.version_code }} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Downloads" >> $GITHUB_STEP_SUMMARY
+            echo "- ARM64: zeroclaw-magisk-aarch64-${{ steps.release.outputs.version }}.zip" >> $GITHUB_STEP_SUMMARY
+            echo "- ARMv7: zeroclaw-magisk-armv7-${{ steps.release.outputs.version }}.zip" >> $GITHUB_STEP_SUMMARY
           else
-            echo "No update needed. Already at latest version."
+            echo "## No update needed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Already at the latest version." >> $GITHUB_STEP_SUMMARY
           fi
