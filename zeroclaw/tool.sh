@@ -77,6 +77,22 @@ cleanup_pidfile() {
   fi
 }
 
+# 更新 module.prop 的 description
+update_description() {
+  local status="$1"
+  local pid="$2"
+  local base_desc="Fast, small, and fully autonomous AI assistant infrastructure. Runs on Android with <5MB RAM. Supports WebUI for chat interface."
+  
+  case "$status" in
+    running)
+      sed -i "s|^description=.*|description=$base_desc Status: Running (PID: $pid)|" "$MODDIR/module.prop"
+      ;;
+    stopped)
+      sed -i "s|^description=.*|description=$base_desc Status: Stopped|" "$MODDIR/module.prop"
+      ;;
+  esac
+}
+
 # 启动守护进程（提取公共函数）
 start_daemon() {
   rotate_logs
@@ -88,6 +104,7 @@ start_daemon() {
   sleep 2
   if kill -0 "$pid" 2>/dev/null; then
     echo "$pid" > "$PIDFILE"
+    update_description running "$pid"
     return 0
   else
     return 1
@@ -115,6 +132,7 @@ stop_daemon() {
       fi
     fi
     rm -f "$PIDFILE"
+    update_description stopped
   fi
 }
 
