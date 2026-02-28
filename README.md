@@ -1,6 +1,6 @@
 # ZeroClaw Magisk Module
 
-快速、小巧、完全自主的 AI 助手基础设施。在 Android 设备上运行，RAM 消耗 <5MB，支持 WebUI 聊天界面。
+快速、小巧、完全自主的 AI 助手基础设施。在 Android 设备上运行，RAM 消耗 <20MB，支持 WebUI 聊天界面。
 
 ## 功能特性
 
