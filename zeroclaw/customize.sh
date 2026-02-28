@@ -58,7 +58,7 @@ else
   log_warn "zeroclaw binary not found, will be installed on first run"
 fi
 
-for script in tool.sh service.sh action.sh; do
+for script in tool.sh service.sh action.sh uninstall.sh; do
   if [ -f "$MODPATH/$script" ]; then
     chmod 755 "$MODPATH/$script" || log_warn "Failed to set $script permissions"
   else

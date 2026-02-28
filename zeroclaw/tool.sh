@@ -10,6 +10,19 @@ LOGFILE="$MODDIR/zeroclaw.log"
 MAX_LOG_SIZE=10485760  # 10MB
 MAX_LOG_FILES=5
 
+# 日志函数
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
+}
+
+log_info() {
+  log "[INFO] $1"
+}
+
+log_error() {
+  log "[ERROR] $1"
+}
+
 # 检查二进制文件
 check_binary() {
   if [ ! -x "$MODDIR/bin/zeroclaw" ]; then
@@ -333,6 +346,11 @@ cleanup() {
 }
 
 trap cleanup HUP INT TERM
+
+# 如果是被 source 引入，只定义函数，不执行主逻辑
+if [ "${0##*/}" != "tool.sh" ]; then
+  return 0 2>/dev/null || true
+fi
 
 # 主逻辑
 if [ -z "$1" ]; then

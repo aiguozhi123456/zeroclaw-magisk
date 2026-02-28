@@ -3,19 +3,14 @@
 # 这将使您的脚本兼容，即使Magisk以后改变挂载点
 
 MODDIR=${0%/*}
+export HOME="/storage/emulated/0/Android"
+
+# 引入公共函数
+. "$MODDIR/tool.sh"
 
 # 配置
 MAX_RETRIES=3
 RETRY_DELAY=5
-
-# 日志函数
-log_info() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $1" >> "$MODDIR/service.log"
-}
-
-log_error() {
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $1" >> "$MODDIR/service.log"
-}
 
 # 等待系统就绪
 wait_for_system() {
