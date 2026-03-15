@@ -1,4 +1,4 @@
-name: Auto Update Magisk Module
+#name: Auto Update Magisk Module
 
 on:
   schedule:
