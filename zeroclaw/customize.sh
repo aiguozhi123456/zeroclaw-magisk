@@ -5,7 +5,7 @@ MODPATH="${0%/*}"
 
 ui_print "=========================================="
 ui_print "  ZeroClaw AI Assistant Module"
-ui_print "  Version: {{VERSION}}"
+ui_print "  Version: v0.6.9"
 ui_print "=========================================="
 
 ARCH=$(getprop ro.product.cpu.abi)
