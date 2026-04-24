@@ -1,73 +1,126 @@
-# ZeroClaw Magisk Module
+<div align="center">
 
-快速、小巧、完全自主的 AI 助手基础设施。在 Android 设备上运行，RAM 消耗 <20MB，支持 WebUI 聊天界面。
+# ⚙️ ZeroClaw Magisk Module
 
-## 功能特性
+[![](https://img.shields.io/badge/platform-Android-green?logo=android)](https://github.com/aiguozhi123456/zeroclaw-magisk)
+[![](https://img.shields.io/badge/arch-ARM64%20%7C%20ARMv7-blue)](https://github.com/aiguozhi123456/zeroclaw-magisk/releases)
+[![](https://img.shields.io/badge/core-zeroclaw--labs%2Fzeroclaw-purple)](https://github.com/zeroclaw-labs/zeroclaw)
 
-- 轻量级 AI 助手服务，可在 Android 设备上运行
-- RAM 占用 <5MB
-- 提供 WebUI 聊天界面（端口 42617）
-- 支持开机自启动
-- 通过 Magisk 模块方式安装
+Lightweight AI assistant infrastructure for Android.  
+Runs via Magisk / KernelSU / APatch with **<20MB RAM** and a built-in WebUI chat interface.
 
-## 安装
+**[English](#features)** · **[中文](#功能特性)**
 
-1. 在 Magisk/KernelSU 中下载并安装本模块
-2. 重启设备
-3. 模块将在开机后自动启动服务
+</div>
 
-## 使用方法
+---
 
-通过 Magisk 模块目录中的 `tool.sh` 脚本控制服务：
+## Features
+
+- **System-level service** — runs as a Magisk module, auto-starts on boot
+- **Dual architecture** — ARM64 (aarch64) & ARMv7 packages built via GitHub Actions
+- **Upstream tracking** — automatically mirrors releases from [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) every 6 hours
+- **WebUI chat** — built-in web interface at `http://127.0.0.1:42617/`
+- **Low footprint** — <20MB RAM, <5MB base
+
+### How It Works
+
+This module **does not compile from source**. The CI workflow:
+
+1. Polls [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) for new releases
+2. Downloads the pre-built `zeroclaw` binary (ARM64 / ARMv7)
+3. Packages it into a Magisk-compatible zip with module metadata
+4. Publishes a GitHub Release with checksums
+
+The `zeroclaw` binary is the core engine — an autonomous AI assistant runtime designed for resource-constrained environments.
+
+### Installation
+
+1. Download the zip for your device architecture from [Releases](https://github.com/aiguozhi123456/zeroclaw-magisk/releases)
+2. Install via Magisk / KernelSU / APatch
+3. Reboot — the service starts automatically
+
+### Usage
 
 ```bash
-# 进入模块目录
+# Enter module directory
 cd /data/adb/modules/zeroclaw
 
-# 启动服务
+# Start / Stop / Restart / Status
 ./tool.sh start
-
-# 停止服务
 ./tool.sh stop
-
-# 重启服务
 ./tool.sh restart
-
-# 查看状态
 ./tool.sh status
-```
 
-或使用交互模式：
-
-```bash
+# Or use interactive mode
 ./tool.sh
 ```
 
-## Web 界面
+Then open `http://127.0.0.1:42617/` in any browser on the device.
 
-服务启动后，访问以下地址进入管理界面：
-
-```
-http://127.0.0.1:42617/
-```
-
-## 文件结构
+### File Structure
 
 ```
 zeroclaw/
-├── bin/                    # 二进制程序
-│   └── zeroclaw           # AI 助手主程序
-├── webroot/               # Web 界面资源
-│   └── index.html         # 引导页面
-├── META-INF/              # Magisk 安装脚本
-│   ├── update-binary
+├── bin/zeroclaw          # Core AI assistant binary
+├── webroot/index.html    # WebUI redirect page
+├── META-INF/com/google/android/
+│   ├── update-binary     # Magisk installer
 │   └── updater-script
-├── customize.sh           # 模块安装脚本
-├── service.sh            # 开机启动服务脚本
-├── tool.sh               # 控制工具脚本
-├── action.sh             # 动作脚本
-├── module.prop           # 模块信息
-└── updateJson.json       # 更新配置
+├── customize.sh          # Module install script
+├── service.sh            # Boot service script
+├── tool.sh               # CLI control tool
+├── action.sh             # Action script
+├── uninstall.sh          # Cleanup on removal
+├── module.prop           # Module metadata
+└── updateJson.json       # Magisk update channel
 ```
 
-## 文件结构
+---
+
+## 功能特性
+
+- **系统级服务** — 以 Magisk 模块运行，开机自启动
+- **双架构支持** — 通过 GitHub Actions 构建 ARM64 与 ARMv7 包
+- **上游自动追踪** — 每 6 小时自动同步 [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) 的新版本
+- **WebUI 聊天** — 内置 Web 界面，访问 `http://127.0.0.1:42617/`
+- **低资源占用** — RAM <20MB，基础占用 <5MB
+
+### 工作原理
+
+本模块**不从源码编译**。CI 工作流程：
+
+1. 轮询 [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) 获取新版本
+2. 下载预编译的 `zeroclaw` 二进制文件（ARM64 / ARMv7）
+3. 打包为 Magisk 兼容的 zip 模块
+4. 发布 GitHub Release 并附带校验和
+
+核心引擎 `zeroclaw` 是一个面向资源受限环境的自主 AI 助手运行时。
+
+### 安装
+
+1. 从 [Releases](https://github.com/aiguozhi123456/zeroclaw-magisk/releases) 下载对应架构的 zip
+2. 通过 Magisk / KernelSU / APatch 安装
+3. 重启设备，服务自动启动
+
+### 使用方法
+
+```bash
+cd /data/adb/modules/zeroclaw
+
+./tool.sh start     # 启动
+./tool.sh stop      # 停止
+./tool.sh restart   # 重启
+./tool.sh status    # 查看状态
+
+./tool.sh           # 交互模式
+```
+
+启动后访问 `http://127.0.0.1:42617/` 即可使用 Web 界面。
+
+---
+
+## License
+
+This module packages binaries from [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw).  
+Module scripts and CI configuration are maintained by [wuyiyi](https://github.com/aiguozhi123456).
