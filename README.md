@@ -122,5 +122,5 @@ cd /data/adb/modules/zeroclaw
 
 ## License
 
-This module packages binaries from [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw).  
-Module scripts and CI configuration are maintained by [wuyiyi](https://github.com/aiguozhi123456).
+Module scripts and CI configuration are licensed under [MIT](LICENSE).  
+The `zeroclaw` binary is from [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) — see upstream for its license.
