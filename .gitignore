@@ -1,2 +1,5 @@
 # Ignore zeroclaw binary
 zeroclaw/bin/zeroclaw
+
+# Ignore build artifacts
+*.zip

@@ -32,32 +32,27 @@ jobs:
           fetch-depth: 0
           clean: true
 
-      - name: Setup dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq curl
-
       - name: Get latest release info
         id: release
         run: |
           set -e
-          
+
           MAX_RETRIES=3
           RETRY_COUNT=0
           RELEASE_JSON=""
-          
+
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             RELEASE_JSON=$(curl -sL --max-time 30 "https://api.github.com/repos/${{ env.SOURCE_REPO }}/releases/latest")
-            
+
             if [ -n "$RELEASE_JSON" ] && ! echo "$RELEASE_JSON" | jq -e '.message' > /dev/null 2>&1; then
               break
             fi
-            
+
             RETRY_COUNT=$((RETRY_COUNT + 1))
             echo "Failed to fetch release info, retrying... ($RETRY_COUNT/$MAX_RETRIES)"
             sleep 5
           done
-          
+
           if [ -z "$RELEASE_JSON" ] || echo "$RELEASE_JSON" | jq -e '.message' > /dev/null 2>&1; then
             echo "Failed to fetch release info after $MAX_RETRIES attempts"
             exit 1
@@ -65,12 +60,18 @@ jobs:
 
           TAG_NAME=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
           VERSION="$TAG_NAME"
-          VERSION_NUM=$(echo "$TAG_NAME" | sed 's/^v//')
-          
-          MAJOR=$(echo "$VERSION_NUM" | cut -d'.' -f1)
-          MINOR=$(echo "$VERSION_NUM" | cut -d'.' -f2)
-          PATCH=$(echo "$VERSION_NUM" | cut -d'.' -f3)
-          
+          VERSION_NUM="${TAG_NAME#v}"
+
+          # 解析版本号：容忍两段式 (v1.2) 与带后缀 (v1.2.3-beta) 的 tag
+          if [[ "$VERSION_NUM" =~ ^([0-9]+)\.([0-9]+)(\.([0-9]+))? ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[4]:-0}"
+          else
+            echo "Error: unrecognized version tag format: $TAG_NAME (expected vX.Y[.Z])"
+            exit 1
+          fi
+
           VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
 
           echo "Latest version: $VERSION"
@@ -82,46 +83,43 @@ jobs:
       - name: Check if update needed
         id: check
         run: |
-          CURRENT_VERSION=$(grep '^version=' zeroclaw/module.prop | cut -d'=' -f2 | sed 's/{{VERSION}}/placeholder/g')
+          # 以仓库中持久化的 updateJson.json 版本为准。
+          # 不要用 module.prop 的 {{VERSION}} 占位符做比较：
+          # 占位符永远不等于上游版本，会导致每次定时运行都误判为"需要更新"，
+          # 产生空提交、强制移动 tag 并重复发布 release。
+          CURRENT_VERSION=$(jq -r '.version // empty' zeroclaw/updateJson.json 2>/dev/null || true)
           NEW_VERSION="${{ steps.release.outputs.version }}"
 
           if [ "${{ inputs.force_update }}" = "true" ]; then
-            echo "Force update requested. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
+            echo "Force update requested. Current: ${CURRENT_VERSION:-none}, Latest: $NEW_VERSION"
             echo "update_needed=true" >> $GITHUB_OUTPUT
           elif [ "$CURRENT_VERSION" = "$NEW_VERSION" ]; then
             echo "No update needed. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
             echo "update_needed=false" >> $GITHUB_OUTPUT
           else
-            echo "Update needed. Current: $CURRENT_VERSION, Latest: $NEW_VERSION"
+            echo "Update needed. Current: ${CURRENT_VERSION:-none}, Latest: $NEW_VERSION"
             echo "update_needed=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Backup placeholder files
-        if: steps.check.outputs.update_needed == 'true'
-        run: |
-          mkdir -p /tmp/placeholders
-          cp .templates/module.prop /tmp/placeholders/module.prop
-          cp .templates/customize.sh /tmp/placeholders/customize.sh
-
-      - name: Download ARM64 binary
+      - name: Download and extract ARM64 binary
         if: steps.check.outputs.update_needed == 'true'
         run: |
           set -e
           VERSION="${{ steps.release.outputs.version }}"
-          
+
+          # 上游把 Android 目标标记为 experimental，个别 release 可能缺失该资产
           echo "Downloading ARM64 binary..."
           curl -fSL --max-time 120 --retry 3 --retry-delay 5 \
             "https://github.com/${{ env.SOURCE_REPO }}/releases/download/$VERSION/zeroclaw-aarch64-linux-android.tar.gz" \
             -o /tmp/zeroclaw-aarch64-linux-android.tar.gz
 
-          echo "Download complete"
+          # 按上游 SHA256SUMS 校验下载完整性
+          curl -fSL --max-time 60 --retry 3 \
+            "https://github.com/${{ env.SOURCE_REPO }}/releases/download/$VERSION/SHA256SUMS" \
+            -o /tmp/SHA256SUMS
+          (cd /tmp && grep "zeroclaw-aarch64-linux-android.tar.gz" SHA256SUMS | sha256sum -c -)
 
-      - name: Extract binary
-        if: steps.check.outputs.update_needed == 'true'
-        run: |
-          set -e
           mkdir -p /tmp/zeroclaw-arm64
-
           tar -xzf /tmp/zeroclaw-aarch64-linux-android.tar.gz -C /tmp/zeroclaw-arm64
 
           if [ ! -f "/tmp/zeroclaw-arm64/zeroclaw" ]; then
@@ -129,21 +127,73 @@ jobs:
             exit 1
           fi
 
-          echo "Extract complete"
+          echo "Download and extract complete"
 
-      - name: Replace placeholders with version
+      - name: Build package
         if: steps.check.outputs.update_needed == 'true'
         run: |
           set -e
           VERSION="${{ steps.release.outputs.version }}"
           VERSION_CODE="${{ steps.release.outputs.version_code }}"
+
+          # 在临时目录组装模块，不改动仓库工作区，
+          # 因此无需再提交"还原占位符"的返工 commit
+          STAGE="$RUNNER_TEMP/zeroclaw-module"
+          rm -rf "$STAGE"
+          cp -r zeroclaw "$STAGE"
+
+          # 上游 release 不内嵌 WebUI：gateway 按 <二进制目录>/web/dist 探测，
+          # 因此把 tar 全部内容（zeroclaw 二进制 + web/dist 资源）一并放进 bin/
+          rm -rf "$STAGE/bin"
+          mkdir -p "$STAGE/bin"
+          cp -a /tmp/zeroclaw-arm64/. "$STAGE/bin/"
+          chmod +x "$STAGE/bin/zeroclaw"
+
+          if [ ! -f "$STAGE/bin/zeroclaw" ]; then
+            echo "Error: zeroclaw binary not found in staged files"
+            exit 1
+          fi
+          if [ ! -d "$STAGE/bin/web/dist" ]; then
+            echo "::warning::web/dist missing in upstream archive - WebUI will run in API-only mode (upstream Android build is experimental)"
+          fi
+
+          sed -i "s/{{VERSION}}/$VERSION/g" "$STAGE/module.prop"
+          sed -i "s/{{VERSION_CODE}}/$VERSION_CODE/g" "$STAGE/module.prop"
+          sed -i "s/{{VERSION}}/$VERSION/g" "$STAGE/customize.sh"
+
           ZIP_URL="https://github.com/${{ github.repository }}/releases/download/$VERSION/zeroclaw-magisk-$VERSION.zip"
           CHANGELOG_URL="https://github.com/${{ env.SOURCE_REPO }}/releases/tag/$VERSION"
+          cat > "$STAGE/updateJson.json" << EOF
+          {
+            "version": "$VERSION",
+            "versionCode": $VERSION_CODE,
+            "zipUrl": "$ZIP_URL",
+            "changelog": "$CHANGELOG_URL"
+          }
+          EOF
 
-          sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/module.prop
-          sed -i "s/{{VERSION_CODE}}/$VERSION_CODE/g" zeroclaw/module.prop
-          sed -i "s/{{VERSION}}/$VERSION/g" zeroclaw/customize.sh
+          (cd "$STAGE" && zip -r "$GITHUB_WORKSPACE/zeroclaw-magisk-$VERSION.zip" .)
 
+          if [ ! -f "$GITHUB_WORKSPACE/zeroclaw-magisk-$VERSION.zip" ]; then
+            echo "Error: Package not created"
+            exit 1
+          fi
+
+          echo "Package created: zeroclaw-magisk-$VERSION.zip"
+
+      - name: Commit version bump and tag
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          set -e
+          VERSION="${{ steps.release.outputs.version }}"
+          VERSION_CODE="${{ steps.release.outputs.version_code }}"
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # 只提交 updateJson.json 的版本推进，仓库保持占位符源文件不动
+          ZIP_URL="https://github.com/${{ github.repository }}/releases/download/$VERSION/zeroclaw-magisk-$VERSION.zip"
+          CHANGELOG_URL="https://github.com/${{ env.SOURCE_REPO }}/releases/tag/$VERSION"
           cat > zeroclaw/updateJson.json << EOF
           {
             "version": "$VERSION",
@@ -153,46 +203,17 @@ jobs:
           }
           EOF
 
-          echo "Placeholders replaced"
+          git add zeroclaw/updateJson.json
 
-      - name: Build package
-        if: steps.check.outputs.update_needed == 'true'
-        run: |
-          set -e
-          VERSION="${{ steps.release.outputs.version }}"
-
-          mkdir -p zeroclaw/bin
-          cp /tmp/zeroclaw-arm64/zeroclaw zeroclaw/bin/zeroclaw
-          chmod +x zeroclaw/bin/zeroclaw
-
-          cd zeroclaw && zip -r "../zeroclaw-magisk-$VERSION.zip" . && cd ..
-
-          if [ ! -f "zeroclaw-magisk-$VERSION.zip" ]; then
-            echo "Error: Package not created"
-            exit 1
-          fi
-
-          echo "Package created: zeroclaw-magisk-$VERSION.zip"
-
-      - name: Commit and push changes
-        if: steps.check.outputs.update_needed == 'true'
-        run: |
-          VERSION="${{ steps.release.outputs.version }}"
-
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          git add zeroclaw/
-
+          # force_update 重跑时版本可能没变，跳过提交但保证 tag 存在
           if git diff --cached --quiet; then
-            echo "No changes to commit, using --allow-empty"
-            git commit --allow-empty -m "Update to $VERSION"
+            echo "No version change to commit (force re-run)"
           else
             git commit -m "Update to $VERSION"
           fi
-
           git push origin master
 
+          # 正常流程是新 tag；-f 仅为异常重跑提供幂等性
           git tag -f "$VERSION"
           git push origin "$VERSION" --force
 
@@ -220,24 +241,6 @@ jobs:
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
-
-      - name: Restore placeholder files
-        if: steps.check.outputs.update_needed == 'true'
-        run: |
-          cp .templates/module.prop zeroclaw/module.prop
-          cp .templates/customize.sh zeroclaw/customize.sh
-
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          git add zeroclaw/
-
-          if git diff --cached --quiet; then
-            echo "No changes to commit, skipping"
-          else
-            git commit -m "Restore placeholders"
-            git push origin master
-          fi
 
       - name: Summary
         run: |
