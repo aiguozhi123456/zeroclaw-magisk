@@ -160,17 +160,17 @@ ZeroClaw Control Panel
   6 - quickstart   (Initialize workspace/config; replaces deprecated 'onboard')
   7 - agent        (Run interactive chat)
   8 - gateway      (Gateway control: start/restart/get-paircode)
-  9 - service      (Manage OS service: start/stop/restart/status/install/uninstall)
+  9 - service      (Manage OS service: start/stop/restart/status/install/uninstall/logs)
  10 - doctor       (Run diagnostics)
  11 - estop        (Emergency stop: estop [resume])
- 12 - cron         (Manage scheduled tasks: list/add/add-at/add-every/once/remove/pause/resume)
+ 12 - cron         (Manage scheduled tasks: list/add/add-at/add-every/once/remove/pause/resume/update)
  13 - models       (Refresh model catalogs)
- 14 - providers    (List provider IDs and aliases)
- 15 - channel      (Manage channels: list/start/doctor/bind-telegram/add/remove)
+ 14 - providers    (Manage providers: list/create/rename/delete)
+ 15 - channel      (Manage channels: list/start/doctor/bind-telegram/add/remove/send)
  16 - integrations (Inspect integration details)
- 17 - skills       (Skill management: list/audit/install/remove)
+ 17 - skills       (Skill management: list/audit/install/remove/add/edit/bundle/test)
  18 - migrate      (Import from external runtimes)
- 19 - config       (Show config schema)
+ 19 - config       (Manage config: list/get/set/init/migrate/patch/docs/generate/schema)
  20 - completions  (Generate shell completions: bash/fish/zsh/powershell/elvish)
  21 - hardware     (Discover/inspect USB hardware)
  22 - peripheral   (Configure and flash peripherals)
@@ -217,7 +217,8 @@ run_cmd() {
       fi
       ;;
     4|status)
-      "$MODDIR/bin/zeroclaw" status
+      shift
+      "$MODDIR/bin/zeroclaw" status "$@"
       ;;
     5|status_pid)
       cleanup_pidfile
@@ -241,7 +242,7 @@ run_cmd() {
       ;;
     9|service)
       shift
-      validate_subcmd "$1" "install start stop restart status uninstall" && \
+      validate_subcmd "$1" "install start stop restart status uninstall logs" && \
         "$MODDIR/bin/zeroclaw" service "$@"
       ;;
     10|doctor)
@@ -254,7 +255,7 @@ run_cmd() {
       ;;
     12|cron)
       shift
-      validate_subcmd "$1" "list add add-at add-every once remove pause resume" && \
+      validate_subcmd "$1" "list add add-at add-every once remove pause resume update" && \
         "$MODDIR/bin/zeroclaw" cron "$@"
       ;;
     13|models)
@@ -262,11 +263,17 @@ run_cmd() {
       "$MODDIR/bin/zeroclaw" models "$@"
       ;;
     14|providers)
-      "$MODDIR/bin/zeroclaw" providers
+      shift
+      if [ -z "$1" ]; then
+        "$MODDIR/bin/zeroclaw" providers
+      else
+        validate_subcmd "$1" "list create rename delete" && \
+          "$MODDIR/bin/zeroclaw" providers "$@"
+      fi
       ;;
     15|channel)
       shift
-      validate_subcmd "$1" "list start doctor bind-telegram add remove" && \
+      validate_subcmd "$1" "list start doctor bind-telegram add remove send" && \
         "$MODDIR/bin/zeroclaw" channel "$@"
       ;;
     16|integrations)
@@ -279,7 +286,7 @@ run_cmd() {
       ;;
     17|skills)
       shift
-      validate_subcmd "$1" "list audit install remove" && \
+      validate_subcmd "$1" "list audit install remove add edit bundle test" && \
         "$MODDIR/bin/zeroclaw" skills "$@"
       ;;
     18|migrate)
@@ -295,7 +302,13 @@ run_cmd() {
       esac
       ;;
     19|config)
-      "$MODDIR/bin/zeroclaw" config schema
+      shift
+      if [ -z "$1" ]; then
+        "$MODDIR/bin/zeroclaw" config schema
+      else
+        validate_subcmd "$1" "list get set init migrate patch docs generate schema" && \
+          "$MODDIR/bin/zeroclaw" config "$@"
+      fi
       ;;
     20|completions)
       shift
