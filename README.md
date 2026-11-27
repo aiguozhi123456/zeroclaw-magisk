@@ -6,8 +6,8 @@
 [![](https://img.shields.io/badge/arch-ARM64%20(aarch64)-blue)](https://github.com/aiguozhi123456/zeroclaw-magisk/releases)
 [![](https://img.shields.io/badge/core-zeroclaw--labs%2Fzeroclaw-purple)](https://github.com/zeroclaw-labs/zeroclaw)
 
-Lightweight AI assistant infrastructure for Android.  
-Runs via Magisk / KernelSU / APatch with **<20MB RAM** and a built-in WebUI chat interface.
+AI assistant infrastructure for Android.  
+Runs via Magisk / KernelSU / APatch; ships the upstream binary + WebUI (~23MB download, ~49MB installed).
 
 **[English](#features)** · **[中文](#功能特性)**
 
@@ -21,14 +21,14 @@ Runs via Magisk / KernelSU / APatch with **<20MB RAM** and a built-in WebUI chat
 - **ARM64 only** — aarch64 package built via GitHub Actions
 - **Upstream tracking** — automatically mirrors releases from [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) every 6 hours
 - **WebUI chat** — built-in web interface at `http://127.0.0.1:42617/`
-- **Low footprint** — <20MB RAM, <5MB base
+- **Verified assets** — downloads are checked against upstream SHA256SUMS; ~23MB zip, ~49MB installed (binary + WebUI assets)
 
 ### How It Works
 
 This module **does not compile from source**. The CI workflow:
 
 1. Polls [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) for new releases
-2. Downloads the pre-built `zeroclaw` binary (ARM64)
+2. Downloads the pre-built ARM64 archive (`zeroclaw` binary + `web/dist` WebUI assets), verified against upstream SHA256SUMS
 3. Packages it into a Magisk-compatible zip with module metadata
 4. Publishes a GitHub Release with checksums
 
@@ -58,12 +58,20 @@ cd /data/adb/modules/zeroclaw
 
 Then open `http://127.0.0.1:42617/` in any browser on the device.
 
+First run: the WebUI walks you through `/quickstart`. The pairing code is available via:
+
+```bash
+./tool.sh gateway get-paircode
+```
+
+Data and config live in `/data/adb/zeroclaw` (upstream `ZEROCLAW_CONFIG_DIR`); they are removed when the module is uninstalled.
+
 ### File Structure
 
 ```
 zeroclaw/
 ├── bin/zeroclaw          # Core AI assistant binary
-├── webroot/index.html    # WebUI redirect page
+├── bin/web/dist/         # WebUI static assets (served by the gateway)
 ├── META-INF/com/google/android/
 │   ├── update-binary     # Magisk installer
 │   └── updater-script
@@ -84,14 +92,14 @@ zeroclaw/
 - **ARM64 支持** — aarch64 架构包通过 GitHub Actions 构建
 - **上游自动追踪** — 每 6 小时自动同步 [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) 的新版本
 - **WebUI 聊天** — 内置 Web 界面，访问 `http://127.0.0.1:42617/`
-- **低资源占用** — RAM <20MB，基础占用 <5MB
+- **资产校验** — 下载按上游 SHA256SUMS 校验；压缩包 ~23MB、安装后 ~49MB（二进制 + WebUI 资源）
 
 ### 工作原理
 
 本模块**不从源码编译**。CI 工作流程：
 
 1. 轮询 [zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw) 获取新版本
-2. 下载预编译的 `zeroclaw` 二进制文件（ARM64）
+2. 下载预编译 ARM64 压缩包（`zeroclaw` 二进制 + `web/dist` WebUI 资源），按上游 SHA256SUMS 校验
 3. 打包为 Magisk 兼容的 zip 模块
 4. 发布 GitHub Release 并附带校验和
 
@@ -117,6 +125,14 @@ cd /data/adb/modules/zeroclaw
 ```
 
 启动后访问 `http://127.0.0.1:42617/` 即可使用 Web 界面。
+
+首次使用：WebUI 会引导你完成 `/quickstart`。配对码可通过以下命令查看：
+
+```bash
+./tool.sh gateway get-paircode
+```
+
+数据与配置存放在 `/data/adb/zeroclaw`（即上游 `ZEROCLAW_CONFIG_DIR`），卸载模块时一并删除。
 
 ---
 

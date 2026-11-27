@@ -1,7 +1,6 @@
 #!/system/bin/sh
 
 MODDIR=${0%/*}
-export HOME="/storage/emulated/0/Android"
 
 # 引入公共函数
 . "$MODDIR/tool.sh"

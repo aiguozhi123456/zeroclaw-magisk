@@ -3,7 +3,6 @@
 # 这将使您的脚本兼容，即使Magisk以后改变挂载点
 
 MODDIR=${0%/*}
-export HOME="/storage/emulated/0/Android"
 
 # 引入公共函数
 . "$MODDIR/tool.sh"
@@ -21,24 +20,6 @@ wait_for_system() {
   
   # 等待 /system/bin 可用
   while [ ! -d "/system/bin" ] && [ $count -lt $timeout ]; do
-    sleep 1
-    count=$((count + 1))
-  done
-  
-  # 等待存储可用
-  count=0
-  while [ ! -d "/storage/emulated/0" ] && [ $count -lt $timeout ]; do
-    sleep 1
-    count=$((count + 1))
-  done
-  
-  # 等待网络就绪（可选）
-  count=0
-  while [ $count -lt 10 ]; do
-    if ping -c 1 8.8.8.8 > /dev/null 2>&1; then
-      log_info "Network is ready"
-      break
-    fi
     sleep 1
     count=$((count + 1))
   done
